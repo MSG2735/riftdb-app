@@ -1,5 +1,5 @@
 import React, { createContext, useState, useContext, useEffect, ReactNode } from 'react';
-import { fetchGameData } from '../services/leagueApi';
+import { fetchGameData, fetchEventData } from '../services/leagueApi';
 
 // Define the interface for the game state
 export interface GameState {
@@ -60,7 +60,8 @@ const transformGameData = (data: any): any => {
     
     return {
       ...player,
-      totalGold
+      totalGold,
+      gameTime: data.gameData?.gameTime || 0
     };
   });
 
@@ -84,60 +85,82 @@ const processEvents = (eventsData: any): any => {
       redTeam: { dragons: 0, turrets: 0, dragonTypes: [] as string[] }
     };
   }
-
+  
   const objectives = {
     blueTeam: { dragons: 0, turrets: 0, dragonTypes: [] as string[] },
     redTeam: { dragons: 0, turrets: 0, dragonTypes: [] as string[] }
   };
 
-  // Helper function to determine team from player name
-  const getTeamFromPlayerName = (playerName: string, players: any[]): string | null => {
-    // Map ORDER/CHAOS to BLUE/RED
-    const teamMap: any = {
-      'ORDER': 'BLUE',
-      'CHAOS': 'RED'
-    };
-
-    const player = players.find(p => p.summonerName === playerName);
-    if (player) {
-      return teamMap[player.team] || player.team;
-    }
-    return null;
-  };
-
-  // Get all players from the latest event data
-  const allPlayers = eventsData.allPlayers || [];
-
+  // Process each event to extract objective information
   eventsData.Events.forEach((event: any) => {
     // Handle dragon kills
     if (event.EventName === 'DragonKill') {
-      const killerTeam = getTeamFromPlayerName(event.KillerName, allPlayers);
-      
-      if (killerTeam === 'BLUE') {
-        objectives.blueTeam.dragons++;
-        if (event.DragonType) {
-          objectives.blueTeam.dragonTypes.push(event.DragonType);
-        }
-      } else if (killerTeam === 'RED') {
-        objectives.redTeam.dragons++;
-        if (event.DragonType) {
-          objectives.redTeam.dragonTypes.push(event.DragonType);
+      // In League API, turret and dragon kills are attributed to a team directly
+      // The format is typically "T1" (blue/ORDER) or "T2" (red/CHAOS)
+      if (event.KillerName && typeof event.KillerName === 'string') {
+        const dragonType = event.DragonType || 'Unknown';
+        
+        // Check if the killer is from blue team
+        if (event.KillerName.includes('T1') || 
+            event.KillerName.toLowerCase().includes('blue') || 
+            event.KillerName.toLowerCase().includes('order')) {
+          objectives.blueTeam.dragons++;
+          objectives.blueTeam.dragonTypes.push(dragonType);
+        } 
+        // Check if the killer is from red team
+        else if (event.KillerName.includes('T2') || 
+                event.KillerName.toLowerCase().includes('red') || 
+                event.KillerName.toLowerCase().includes('chaos')) {
+          objectives.redTeam.dragons++;
+          objectives.redTeam.dragonTypes.push(dragonType);
         }
       }
     }
     
-    // Handle turret kills
-    if (event.EventName === 'TurretKilled') {
-      const killerTeam = getTeamFromPlayerName(event.KillerName, allPlayers);
+    // Handle turret kills (look for TurretKilled or BuildingKill events)
+    if (event.EventName === 'TurretKilled' || 
+        (event.EventName === 'BuildingKill' && event.BuildingType === 'TOWER_BUILDING')) {
       
-      if (killerTeam === 'BLUE') {
+      // The API often includes information about which team's turret was destroyed
+      // For example, "Turret_T1_L_03_A" is a blue team turret
+      // "Turret_T2_L_03_A" is a red team turret
+      let blueTeamKilledTurret = false;
+      let redTeamKilledTurret = false;
+      
+      // Check turret information if available
+      if (event.TurretKilled && typeof event.TurretKilled === 'string') {
+        // If a T2 (red) turret was killed, blue team gets credit
+        if (event.TurretKilled.includes('T2')) {
+          blueTeamKilledTurret = true;
+        } 
+        // If a T1 (blue) turret was killed, red team gets credit
+        else if (event.TurretKilled.includes('T1')) {
+          redTeamKilledTurret = true;
+        }
+      }
+      
+      // If turret info wasn't helpful, try killer name
+      if (!blueTeamKilledTurret && !redTeamKilledTurret && event.KillerName) {
+        if (event.KillerName.includes('T1') || 
+            event.KillerName.toLowerCase().includes('blue') || 
+            event.KillerName.toLowerCase().includes('order')) {
+          blueTeamKilledTurret = true;
+        } else if (event.KillerName.includes('T2') || 
+                  event.KillerName.toLowerCase().includes('red') || 
+                  event.KillerName.toLowerCase().includes('chaos')) {
+          redTeamKilledTurret = true;
+        }
+      }
+      
+      // Update the counts
+      if (blueTeamKilledTurret) {
         objectives.blueTeam.turrets++;
-      } else if (killerTeam === 'RED') {
+      } else if (redTeamKilledTurret) {
         objectives.redTeam.turrets++;
       }
     }
   });
-
+  
   return objectives;
 };
 
@@ -225,6 +248,18 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       
       // Validate the data has the expected structure
       if (isValidGameData(data)) {
+        // If the event data seems incomplete, try to fetch it directly
+        if (!data.events || !data.events.Events || data.events.Events.length === 0) {
+          try {
+            const eventData = await fetchEventData();
+            if (eventData && eventData.Events) {
+              data.events = eventData;
+            }
+          } catch (eventError) {
+            // Continue with the original data even if event fetching failed
+          }
+        }
+        
         // Transform data to match expected format before setting it
         const transformedData = transformGameData(data);
         setGameData(transformedData);
@@ -237,7 +272,6 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         setIsInGame(true);
         setError(null);
       } else {
-        console.error('Invalid game data structure:', data);
         setError('Received invalid data from League client');
         setGameData(null);
         setActivePlayer(null);
@@ -246,7 +280,6 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       
       setLastRefresh(new Date());
     } catch (err) {
-      console.error('Error fetching game data:', err);
       setError('Unable to connect to League of Legends client');
       setGameData(null);
       setActivePlayer(null);
