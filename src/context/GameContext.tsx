@@ -64,29 +64,95 @@ const transformGameData = (data: any): any => {
     };
   });
 
+  // Process events to extract objectives
+  const processedEvents = processEvents(data.events);
+
   return {
     gameStats: data.gameData,
     allPlayers: enrichedPlayers,
-    teams: extractTeamsFromPlayers(enrichedPlayers),
+    teams: extractTeamsFromPlayers(enrichedPlayers, processedEvents),
     events: data.events,
     activePlayer: data.activePlayer
   };
 };
 
+// Process events to extract objective information
+const processEvents = (eventsData: any): any => {
+  if (!eventsData || !eventsData.Events || !Array.isArray(eventsData.Events)) {
+    return {
+      blueTeam: { dragons: 0, towers: 0 },
+      redTeam: { dragons: 0, towers: 0 }
+    };
+  }
+
+  const objectives = {
+    blueTeam: { dragons: 0, towers: 0 },
+    redTeam: { dragons: 0, towers: 0 }
+  };
+
+  eventsData.Events.forEach((event: any) => {
+    // Handle dragon kills
+    if (event.EventName === 'DragonKill') {
+      // Determine which team killed the dragon based on the killer's team
+      // We need to check the team of the KillerName
+      if (event.KillerName && event.KillerName.includes('Blue')) {
+        objectives.blueTeam.dragons++;
+      } else if (event.KillerName && event.KillerName.includes('Red')) {
+        objectives.redTeam.dragons++;
+      }
+    }
+    
+    // Handle tower kills
+    if (event.EventName === 'TurretKilled') {
+      // Determine which team killed the tower
+      if (event.KillerName && event.KillerName.includes('Blue')) {
+        objectives.blueTeam.towers++;
+      } else if (event.KillerName && event.KillerName.includes('Red')) {
+        objectives.redTeam.towers++;
+      }
+    }
+  });
+
+  return objectives;
+};
+
 // Helper function to extract teams data from players
-const extractTeamsFromPlayers = (players: any[]): any[] => {
+const extractTeamsFromPlayers = (players: any[], objectives: any): any[] => {
+  // Map 'ORDER' team to 'BLUE' and 'CHAOS' team to 'RED'
+  const teamMap: any = {
+    'ORDER': 'BLUE',
+    'CHAOS': 'RED'
+  };
+
+  // Get all blue and red players
+  const bluePlayers = players.filter(p => teamMap[p.team] === 'BLUE' || p.team === 'BLUE');
+  const redPlayers = players.filter(p => teamMap[p.team] === 'RED' || p.team === 'RED');
+
+  // Calculate team gold by summing individual player gold
+  const blueTeamGold = bluePlayers.reduce((sum, player) => sum + (player.totalGold || 0), 0);
+  const redTeamGold = redPlayers.reduce((sum, player) => sum + (player.totalGold || 0), 0);
+
+  // Calculate team kills
+  const blueTeamKills = bluePlayers.reduce((sum, player) => {
+    return sum + (player.scores && player.scores.kills ? player.scores.kills : 0);
+  }, 0);
+  
+  const redTeamKills = redPlayers.reduce((sum, player) => {
+    return sum + (player.scores && player.scores.kills ? player.scores.kills : 0);
+  }, 0);
+
   // Create team structures based on players
   const blueTeam = {
     teamID: 100,
     team: 'BLUE',
-    totalGold: players.filter(p => p.team === 'BLUE').reduce((sum, p) => sum + (p.totalGold || 0), 0),
+    totalGold: blueTeamGold,
     score: {
-      kills: players.filter(p => p.team === 'BLUE').reduce((sum, p) => sum + p.scores.kills, 0),
+      kills: blueTeamKills
     },
     objectives: {
-      dragon: { kills: 0 },
+      dragon: { kills: objectives.blueTeam.dragons },
       baron: { kills: 0 },
-      tower: { kills: 0 },
+      tower: { kills: objectives.blueTeam.towers },
       inhibitor: { kills: 0 }
     }
   };
@@ -94,20 +160,17 @@ const extractTeamsFromPlayers = (players: any[]): any[] => {
   const redTeam = {
     teamID: 200,
     team: 'RED',
-    totalGold: players.filter(p => p.team === 'RED').reduce((sum, p) => sum + (p.totalGold || 0), 0),
+    totalGold: redTeamGold,
     score: {
-      kills: players.filter(p => p.team === 'RED').reduce((sum, p) => sum + p.scores.kills, 0),
+      kills: redTeamKills
     },
     objectives: {
-      dragon: { kills: 0 },
+      dragon: { kills: objectives.redTeam.dragons },
       baron: { kills: 0 },
-      tower: { kills: 0 },
+      tower: { kills: objectives.redTeam.towers },
       inhibitor: { kills: 0 }
     }
   };
-
-  // Extract objective data if available in events
-  // (This is simplified - actual implementation would need to parse events)
 
   return [blueTeam, redTeam];
 };

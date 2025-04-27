@@ -121,9 +121,12 @@ const GameStats: React.FC<GameStatsProps> = ({ gameData }) => {
           <div className="h-2 bg-gray-800 rounded-full overflow-hidden">
             {blueTeam.totalGold && redTeam.totalGold ? (
               <div 
-                className="h-full bg-gradient-to-r from-blue-600 to-blue-400" 
+                className={`h-full ${blueTeam.totalGold >= redTeam.totalGold ? 'bg-gradient-to-r from-blue-600 to-blue-400' : 'bg-gradient-to-l from-red-600 to-red-400'}`}
                 style={{ 
-                  width: `${(blueTeam.totalGold / (blueTeam.totalGold + redTeam.totalGold) * 100).toFixed(0)}%` 
+                  width: `${Math.abs((blueTeam.totalGold / (blueTeam.totalGold + redTeam.totalGold) - 0.5) * 200)}%`,
+                  marginLeft: blueTeam.totalGold >= redTeam.totalGold ? '50%' : 'auto',
+                  marginRight: blueTeam.totalGold < redTeam.totalGold ? '50%' : 'auto',
+                  transform: blueTeam.totalGold >= redTeam.totalGold ? 'translateX(-100%)' : 'none'
                 }}
               />
             ) : (
@@ -131,8 +134,8 @@ const GameStats: React.FC<GameStatsProps> = ({ gameData }) => {
             )}
           </div>
           <div className="flex justify-between text-xs mt-1">
-            <span className="text-blue-300">{blueTeam.totalGold?.toLocaleString() || 0}</span>
-            <span className="text-red-300">{redTeam.totalGold?.toLocaleString() || 0}</span>
+            <span className="text-blue-300 font-mono">{blueTeam.totalGold?.toLocaleString() || 0}</span>
+            <span className="text-red-300 font-mono">{redTeam.totalGold?.toLocaleString() || 0}</span>
           </div>
         </div>
       </div>
