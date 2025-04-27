@@ -8,6 +8,28 @@ interface GameStatsProps {
   gameData: any;
 }
 
+// Helper function to format entity names in events
+const formatEventEntityName = (name: string): string => {
+  if (!name) return '';
+  
+  // Shorten turret names
+  if (name.startsWith('Turret') || name.toLowerCase().includes('turret')) {
+    return 'Turret';
+  }
+
+  // Shorten turret names
+  if (name.startsWith('Inhib') || name.toLowerCase().includes('inhib')) {
+    return 'Inhib';
+  }
+  
+  // Shorten minion names
+  if (name.startsWith('Minion') || name.toLowerCase().includes('minion')) {
+    return 'Minion';
+  }
+  
+  return name;
+};
+
 const GameStats: React.FC<GameStatsProps> = ({ gameData }) => {
   const { activePlayer } = useGameContext();
   
@@ -93,7 +115,8 @@ const GameStats: React.FC<GameStatsProps> = ({ gameData }) => {
                       <Award size={12} className="text-yellow-400" />
                       <span className="truncate">
                         {event.EventName.replace('Champion', '')}
-                        {event.KillerName && ` - ${event.KillerName}`}
+                        {event.KillerName && ` - ${formatEventEntityName(event.KillerName)}`}
+                        {event.VictimName && ` ${event.EventName === 'ChampionKill' ? 'killed' : ''} ${formatEventEntityName(event.VictimName)}`}
                       </span>
                     </li>
                   ))}
