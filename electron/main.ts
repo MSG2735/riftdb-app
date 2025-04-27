@@ -3,8 +3,12 @@ import * as path from 'path';
 import * as fs from 'fs';
 import * as https from 'https';
 
-// Disable hardware acceleration
+// Disable hardware acceleration - needed for transparency in packaged app
 app.disableHardwareAcceleration();
+
+// Add command line switches for transparency
+app.commandLine.appendSwitch('enable-transparent-visuals');
+app.commandLine.appendSwitch('disable-gpu');
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling
 if (require('electron-squirrel-startup')) {
@@ -34,11 +38,11 @@ const createWindow = (): void => {
       },
       alwaysOnTop: true,
       skipTaskbar: false, // Show in taskbar for production builds
-      resizable: true, // Allow users to resize if needed
       hasShadow: false,
       x: width - 620, // Position 620px right to the right edge
       y: 75, // Position 75px down from the top
-      show: false // Don't show until fully loaded
+      show: false, // Don't show until fully loaded
+      backgroundColor: '#00000000' // Transparent background color
     });
 
     // Configure session to bypass certificate errors for League API
@@ -50,19 +54,60 @@ const createWindow = (): void => {
     app.commandLine.appendSwitch('ignore-certificate-errors');
     
     // Load app
-    const startUrl = app.isPackaged
-      ? `file://${path.join(__dirname, '..', 'renderer', 'index.html')}`
-      : 'http://localhost:5173';
+    let startUrl;
+    if (app.isPackaged) {
+      // In production, use absolute path to find the index.html
+      // The path is different in packaged app
+      const rendererPath = path.join(__dirname, '../renderer/index.html');
+      console.log('Trying renderer path:', rendererPath);
+      
+      // Check if the path exists
+      if (fs.existsSync(rendererPath)) {
+        startUrl = `file://${rendererPath}`;
+      } else {
+        // Fallback paths - try different relative paths that might work in packaged app
+        const fallbackPaths = [
+          path.join(__dirname, 'renderer/index.html'),
+          path.join(__dirname, '../../renderer/index.html'),
+          path.join(process.resourcesPath, 'app/renderer/index.html'),
+          path.join(process.resourcesPath, 'renderer/index.html'),
+          path.join(app.getAppPath(), 'renderer/index.html')
+        ];
+        
+        // Try each path until one exists
+        for (const testPath of fallbackPaths) {
+          console.log('Testing path:', testPath);
+          if (fs.existsSync(testPath)) {
+            startUrl = `file://${testPath}`;
+            console.log('Found valid path:', testPath);
+            break;
+          }
+        }
+        
+        // If still no valid path, use the default
+        if (!startUrl) {
+          console.warn('Could not find renderer path, using default');
+          startUrl = `file://${path.join(__dirname, '../renderer/index.html')}`;
+        }
+      }
+    } else {
+      // In development, connect to the dev server
+      startUrl = 'http://localhost:5173';
+    }
 
     console.log('Loading URL:', startUrl);
     console.log('Packaged:', app.isPackaged);
     console.log('__dirname:', __dirname);
+    console.log('App path:', app.getAppPath());
+    console.log('Resources path:', process.resourcesPath);
     
     // Make the app visible once it's ready
     mainWindow.once('ready-to-show', () => {
       if (mainWindow) {
         mainWindow.show();
         mainWindow.focus();
+        // Explicitly set background color again after window is shown
+        mainWindow.setBackgroundColor('#00000000');
         console.log('Window is now visible');
       }
     });
@@ -187,54 +232,57 @@ const createTray = (): void => {
 // This method will be called when Electron has finished
 // initialization and is ready to create browser windows.
 app.on('ready', () => {
-  // Set permissions to allow loading insecure content (League API uses self-signed certs)
-  session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
-    callback({
-      responseHeaders: {
-        ...details.responseHeaders,
-        'Content-Security-Policy': ["default-src * 'unsafe-inline' 'unsafe-eval'"]
+  // Set a slight delay before creating window to ensure transparency works
+  setTimeout(() => {
+    // Set permissions to allow loading insecure content (League API uses self-signed certs)
+    session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
+      callback({
+        responseHeaders: {
+          ...details.responseHeaders,
+          'Content-Security-Policy': ["default-src * 'unsafe-inline' 'unsafe-eval'"]
+        }
+      });
+    });
+
+    // Set up IPC handler for League API requests
+    ipcMain.handle('fetch-league-data', async (event, endpoint) => {
+      try {
+        return await new Promise((resolve, reject) => {
+          const url = `https://127.0.0.1:2999/liveclientdata${endpoint}`;
+          
+          const req = https.get(url, {
+            rejectUnauthorized: false // Ignore SSL certificate errors
+          }, (res) => {
+            let data = '';
+            
+            res.on('data', (chunk) => {
+              data += chunk;
+            });
+            
+            res.on('end', () => {
+              try {
+                resolve(JSON.parse(data));
+              } catch (e) {
+                reject(e);
+              }
+            });
+          });
+          
+          req.on('error', (error) => {
+            reject(error);
+          });
+          
+          req.end();
+        });
+      } catch (error) {
+        console.error('Error fetching League data:', error);
+        throw error;
       }
     });
-  });
 
-  // Set up IPC handler for League API requests
-  ipcMain.handle('fetch-league-data', async (event, endpoint) => {
-    try {
-      return await new Promise((resolve, reject) => {
-        const url = `https://127.0.0.1:2999/liveclientdata${endpoint}`;
-        
-        const req = https.get(url, {
-          rejectUnauthorized: false // Ignore SSL certificate errors
-        }, (res) => {
-          let data = '';
-          
-          res.on('data', (chunk) => {
-            data += chunk;
-          });
-          
-          res.on('end', () => {
-            try {
-              resolve(JSON.parse(data));
-            } catch (e) {
-              reject(e);
-            }
-          });
-        });
-        
-        req.on('error', (error) => {
-          reject(error);
-        });
-        
-        req.end();
-      });
-    } catch (error) {
-      console.error('Error fetching League data:', error);
-      throw error;
-    }
-  });
-
-  createWindow();
-  createTray();
+    createWindow();
+    createTray();
+  }, 300); // 300ms delay helps with transparency issues
 });
 
 // Quit when all windows are closed, except on macOS.

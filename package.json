@@ -1,7 +1,7 @@
 {
   "name": "riftdb",
   "version": "1.0.0",
-  "description": "League of Legends game stats overlay",
+  "description": "RiftDB League of Legends Overlay",
   "main": "dist/main.js",
   "scripts": {
     "start": "electron .",
@@ -10,7 +10,8 @@
     "dev:electron": "tsc -p tsconfig.electron.json && electron .",
     "build": "tsc -p tsconfig.electron.json && vite build",
     "package": "npm run build && electron-builder",
-    "make-exe": "npm run build && electron-builder --win"
+    "make-exe": "npm run build && electron-builder --win",
+    "start-transparent": "electron . --enable-transparent-visuals --disable-gpu"
   },
   "author": "",
   "license": "MIT",
