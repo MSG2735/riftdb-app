@@ -80,35 +80,60 @@ const transformGameData = (data: any): any => {
 const processEvents = (eventsData: any): any => {
   if (!eventsData || !eventsData.Events || !Array.isArray(eventsData.Events)) {
     return {
-      blueTeam: { dragons: 0, towers: 0 },
-      redTeam: { dragons: 0, towers: 0 }
+      blueTeam: { dragons: 0, turrets: 0, dragonTypes: [] as string[] },
+      redTeam: { dragons: 0, turrets: 0, dragonTypes: [] as string[] }
     };
   }
 
   const objectives = {
-    blueTeam: { dragons: 0, towers: 0 },
-    redTeam: { dragons: 0, towers: 0 }
+    blueTeam: { dragons: 0, turrets: 0, dragonTypes: [] as string[] },
+    redTeam: { dragons: 0, turrets: 0, dragonTypes: [] as string[] }
   };
+
+  // Helper function to determine team from player name
+  const getTeamFromPlayerName = (playerName: string, players: any[]): string | null => {
+    // Map ORDER/CHAOS to BLUE/RED
+    const teamMap: any = {
+      'ORDER': 'BLUE',
+      'CHAOS': 'RED'
+    };
+
+    const player = players.find(p => p.summonerName === playerName);
+    if (player) {
+      return teamMap[player.team] || player.team;
+    }
+    return null;
+  };
+
+  // Get all players from the latest event data
+  const allPlayers = eventsData.allPlayers || [];
 
   eventsData.Events.forEach((event: any) => {
     // Handle dragon kills
     if (event.EventName === 'DragonKill') {
-      // Determine which team killed the dragon based on the killer's team
-      // We need to check the team of the KillerName
-      if (event.KillerName && event.KillerName.includes('Blue')) {
+      const killerTeam = getTeamFromPlayerName(event.KillerName, allPlayers);
+      
+      if (killerTeam === 'BLUE') {
         objectives.blueTeam.dragons++;
-      } else if (event.KillerName && event.KillerName.includes('Red')) {
+        if (event.DragonType) {
+          objectives.blueTeam.dragonTypes.push(event.DragonType);
+        }
+      } else if (killerTeam === 'RED') {
         objectives.redTeam.dragons++;
+        if (event.DragonType) {
+          objectives.redTeam.dragonTypes.push(event.DragonType);
+        }
       }
     }
     
-    // Handle tower kills
+    // Handle turret kills
     if (event.EventName === 'TurretKilled') {
-      // Determine which team killed the tower
-      if (event.KillerName && event.KillerName.includes('Blue')) {
-        objectives.blueTeam.towers++;
-      } else if (event.KillerName && event.KillerName.includes('Red')) {
-        objectives.redTeam.towers++;
+      const killerTeam = getTeamFromPlayerName(event.KillerName, allPlayers);
+      
+      if (killerTeam === 'BLUE') {
+        objectives.blueTeam.turrets++;
+      } else if (killerTeam === 'RED') {
+        objectives.redTeam.turrets++;
       }
     }
   });
@@ -150,9 +175,12 @@ const extractTeamsFromPlayers = (players: any[], objectives: any): any[] => {
       kills: blueTeamKills
     },
     objectives: {
-      dragon: { kills: objectives.blueTeam.dragons },
+      dragon: { 
+        kills: objectives.blueTeam.dragons,
+        types: objectives.blueTeam.dragonTypes || []
+      },
       baron: { kills: 0 },
-      tower: { kills: objectives.blueTeam.towers },
+      turret: { kills: objectives.blueTeam.turrets },
       inhibitor: { kills: 0 }
     }
   };
@@ -165,9 +193,12 @@ const extractTeamsFromPlayers = (players: any[], objectives: any): any[] => {
       kills: redTeamKills
     },
     objectives: {
-      dragon: { kills: objectives.redTeam.dragons },
+      dragon: { 
+        kills: objectives.redTeam.dragons,
+        types: objectives.redTeam.dragonTypes || []
+      },
       baron: { kills: 0 },
-      tower: { kills: objectives.redTeam.towers },
+      turret: { kills: objectives.redTeam.turrets },
       inhibitor: { kills: 0 }
     }
   };

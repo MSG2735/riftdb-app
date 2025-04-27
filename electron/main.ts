@@ -35,8 +35,8 @@ const createWindow = (): void => {
     skipTaskbar: true,
     resizable: true, // Allow users to resize if needed
     hasShadow: false,
-    x: width - 620, // Position 20px from the right edge
-    y: 50 // Position 20px from the top
+    x: width - 620, // Position 620px right to the right edge
+    y: 75 // Position 75px down from the top
   });
 
   // Configure session to bypass certificate errors for League API
