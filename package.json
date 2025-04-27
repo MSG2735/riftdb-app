@@ -9,7 +9,8 @@
     "dev:vite": "vite",
     "dev:electron": "tsc -p tsconfig.electron.json && electron .",
     "build": "tsc -p tsconfig.electron.json && vite build",
-    "package": "npm run build && electron-builder"
+    "package": "npm run build && electron-builder",
+    "make-exe": "npm run build && electron-builder --win"
   },
   "author": "",
   "license": "MIT",
@@ -41,14 +42,33 @@
     "productName": "RiftDB",
     "files": [
       "dist/**/*",
-      "node_modules/**/*"
+      "node_modules/**/*",
+      "assets/**/*",
+      "public/**/*"
+    ],
+    "extraResources": [
+      {
+        "from": "assets",
+        "to": "assets"
+      },
+      {
+        "from": "public",
+        "to": "public"
+      }
     ],
     "directories": {
-      "output": "release"
+      "output": "release",
+      "buildResources": "assets"
     },
     "win": {
       "target": "nsis",
-      "icon": "assets/icon.ico"
+      "icon": "public/favicon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
     }
   }
 }

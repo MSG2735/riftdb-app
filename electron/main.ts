@@ -17,126 +17,171 @@ let tray: Tray | null = null;
 let isIgnoringMouseEvents = false;
 
 const createWindow = (): void => {
-  // Get primary display dimensions
-  const { width, height } = require('electron').screen.getPrimaryDisplay().workAreaSize;
-  
-  // Create the browser window
-  mainWindow = new BrowserWindow({
-    width: 600,
-    height: 700,
-    frame: false,
-    transparent: true,
-    webPreferences: {
-      nodeIntegration: true,
-      contextIsolation: false,
-      webSecurity: false // Allow loading local resources and cross-origin requests
-    },
-    alwaysOnTop: true,
-    skipTaskbar: true,
-    resizable: true, // Allow users to resize if needed
-    hasShadow: false,
-    x: width - 620, // Position 620px right to the right edge
-    y: 75 // Position 75px down from the top
-  });
+  try {
+    // Get primary display dimensions
+    const { width, height } = require('electron').screen.getPrimaryDisplay().workAreaSize;
+    
+    // Create the browser window
+    mainWindow = new BrowserWindow({
+      width: 600,
+      height: 700,
+      frame: false,
+      transparent: true,
+      webPreferences: {
+        nodeIntegration: true,
+        contextIsolation: false,
+        webSecurity: false // Allow loading local resources and cross-origin requests
+      },
+      alwaysOnTop: true,
+      skipTaskbar: false, // Show in taskbar for production builds
+      resizable: true, // Allow users to resize if needed
+      hasShadow: false,
+      x: width - 620, // Position 620px right to the right edge
+      y: 75, // Position 75px down from the top
+      show: false // Don't show until fully loaded
+    });
 
-  // Configure session to bypass certificate errors for League API
-  session.defaultSession.webRequest.onBeforeSendHeaders((details, callback) => {
-    callback({ requestHeaders: { ...details.requestHeaders } });
-  });
+    // Configure session to bypass certificate errors for League API
+    session.defaultSession.webRequest.onBeforeSendHeaders((details, callback) => {
+      callback({ requestHeaders: { ...details.requestHeaders } });
+    });
 
-  // Ignore SSL certificate errors (necessary for League's local API)
-  app.commandLine.appendSwitch('ignore-certificate-errors');
-  
-  // Load app
-  const startUrl = app.isPackaged
-    ? `file://${path.join(__dirname, '../renderer/index.html')}`
-    : 'http://localhost:5173';
+    // Ignore SSL certificate errors (necessary for League's local API)
+    app.commandLine.appendSwitch('ignore-certificate-errors');
+    
+    // Load app
+    const startUrl = app.isPackaged
+      ? `file://${path.join(__dirname, '..', 'renderer', 'index.html')}`
+      : 'http://localhost:5173';
 
-  mainWindow.loadURL(startUrl);
+    console.log('Loading URL:', startUrl);
+    console.log('Packaged:', app.isPackaged);
+    console.log('__dirname:', __dirname);
+    
+    // Make the app visible once it's ready
+    mainWindow.once('ready-to-show', () => {
+      if (mainWindow) {
+        mainWindow.show();
+        mainWindow.focus();
+        console.log('Window is now visible');
+      }
+    });
+    
+    mainWindow.loadURL(startUrl);
 
-  // Open the DevTools in development
-  //if (!app.isPackaged) {
-  //  mainWindow.webContents.openDevTools();
-  //}
+    // Open the DevTools in development
+    //if (!app.isPackaged) {
+    //  mainWindow.webContents.openDevTools();
+    //}
 
-  // Set click-through by default for all modes (development and production)
-  mainWindow.setIgnoreMouseEvents(true, { forward: true });
-  isIgnoringMouseEvents = true;
+    // Only set click-through in development mode
+    if (!app.isPackaged) {
+      mainWindow.setIgnoreMouseEvents(true, { forward: true });
+      isIgnoringMouseEvents = true;
+    } else {
+      isIgnoringMouseEvents = false;
+    }
 
-  mainWindow.on('closed', () => {
-    mainWindow = null;
-  });
+    mainWindow.on('closed', () => {
+      mainWindow = null;
+    });
+    
+  } catch (error) {
+    console.error('Error creating window:', error);
+  }
 };
 
 const createTray = (): void => {
-  // Create custom tray icon
-  let iconPath: string;
-  
-  if (app.isPackaged) {
-    iconPath = path.join(process.resourcesPath, 'assets', 'icon.png');
-  } else {
-    iconPath = path.join(__dirname, '..', 'assets', 'icon.png');
+  try {
+    // Create custom tray icon
+    let iconPath: string;
     
-    // For development, create a placeholder icon if it doesn't exist
-    if (!fs.existsSync(iconPath)) {
-      const assetsDir = path.join(__dirname, '..', 'assets');
-      if (!fs.existsSync(assetsDir)) {
-        fs.mkdirSync(assetsDir, { recursive: true });
-      }
+    if (app.isPackaged) {
+      iconPath = path.join(process.resourcesPath, 'assets', 'icon.ico');
+      console.log('Packaged tray icon path:', iconPath);
       
-      // Create a simple icon using nativeImage
-      const icon = nativeImage.createEmpty();
-      fs.writeFileSync(iconPath, icon.toPNG());
-    }
-  }
-  
-  tray = new Tray(iconPath);
-  tray.setToolTip('RiftDB');
-  
-  const contextMenu = Menu.buildFromTemplate([
-    { 
-      label: 'Show/Hide Overlay', 
-      click: () => {
-        if (mainWindow) {
-          if (mainWindow.isVisible()) {
-            mainWindow.hide();
-          } else {
-            mainWindow.show();
-          }
-        }
-      } 
-    },
-    { 
-      label: 'Toggle Click-Through', 
-      click: () => {
-        if (mainWindow) {
-          // Toggle the click-through state using our tracking variable
-          isIgnoringMouseEvents = !isIgnoringMouseEvents;
-          mainWindow.setIgnoreMouseEvents(isIgnoringMouseEvents, { forward: true });
-        }
-      } 
-    },
-    { type: 'separator' },
-    { 
-      label: 'Quit', 
-      click: () => {
-        app.quit();
-      } 
-    }
-  ]);
-  
-  tray.setContextMenu(contextMenu);
-  
-  // Double-click shows/hides the overlay
-  tray.on('double-click', () => {
-    if (mainWindow) {
-      if (mainWindow.isVisible()) {
-        mainWindow.hide();
-      } else {
-        mainWindow.show();
+      // Check if icon exists
+      if (!fs.existsSync(iconPath)) {
+        console.log('Icon not found at:', iconPath);
+        // Try alternate location
+        iconPath = path.join(__dirname, '../assets/icon.ico');
+        console.log('Trying alternate path:', iconPath);
+      }
+    } else {
+      iconPath = path.join(__dirname, '..', 'assets', 'icon.ico');
+      console.log('Development tray icon path:', iconPath);
+      
+      // For development, if icon doesn't exist, use favicon.ico from public folder
+      if (!fs.existsSync(iconPath)) {
+        console.log('Icon not found in dev mode, using favicon');
+        iconPath = path.join(__dirname, '..', 'public', 'favicon.ico');
       }
     }
-  });
+    
+    console.log('Final icon path:', iconPath);
+    
+    // Ensure icon exists before creating tray
+    if (!fs.existsSync(iconPath)) {
+      console.error('Icon file not found:', iconPath);
+      // Use empty icon as fallback
+      const emptyIcon = nativeImage.createEmpty();
+      tray = new Tray(emptyIcon);
+    } else {
+      tray = new Tray(iconPath);
+    }
+    
+    tray.setToolTip('RiftDB');
+    
+    const contextMenu = Menu.buildFromTemplate([
+      { 
+        label: 'Show/Hide Overlay', 
+        click: () => {
+          if (mainWindow) {
+            if (mainWindow.isVisible()) {
+              mainWindow.hide();
+            } else {
+              mainWindow.show();
+            }
+          }
+        } 
+      },
+      { 
+        label: 'Toggle Click-Through', 
+        click: () => {
+          if (mainWindow) {
+            // Toggle the click-through state using our tracking variable
+            isIgnoringMouseEvents = !isIgnoringMouseEvents;
+            mainWindow.setIgnoreMouseEvents(isIgnoringMouseEvents, { forward: true });
+          }
+        } 
+      },
+      { type: 'separator' },
+      { 
+        label: 'Quit', 
+        click: () => {
+          if (mainWindow) {
+            mainWindow.destroy();
+          }
+          app.quit();
+        } 
+      }
+    ]);
+    
+    tray.setContextMenu(contextMenu);
+    
+    // Double-click shows/hides the overlay
+    tray.on('double-click', () => {
+      if (mainWindow) {
+        if (mainWindow.isVisible()) {
+          mainWindow.hide();
+        } else {
+          mainWindow.show();
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Error creating tray:', error);
+  }
 };
 
 // This method will be called when Electron has finished
