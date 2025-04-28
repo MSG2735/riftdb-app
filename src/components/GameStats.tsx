@@ -195,8 +195,8 @@ const GameStats: React.FC<GameStatsProps> = ({ gameData }) => {
             )}
           </div>
           <div className="flex justify-between text-xs mt-1">
-            <span className="text-blue-300 font-mono">{blueTeam.totalGold?.toLocaleString() || 0}</span>
-            <span className="text-red-300 font-mono">{redTeam.totalGold?.toLocaleString() || 0}</span>
+            <span className="text-blue-300 font-mono">{Math.round(blueTeam.totalGold || 0).toLocaleString()}</span>
+            <span className="text-red-300 font-mono">{Math.round(redTeam.totalGold || 0).toLocaleString()}</span>
           </div>
         </div>
       </div>
