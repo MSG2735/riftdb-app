@@ -1,5 +1,4 @@
 import React from 'react';
-import ChampionDetails from './ChampionDetails';
 import { User, Star } from 'lucide-react';
 
 interface PlayerDetailViewProps {
@@ -12,7 +11,7 @@ const PlayerDetailView: React.FC<PlayerDetailViewProps> = ({ player, isActivePla
   
   return (
     <div className="bg-gray-900 bg-opacity-70 backdrop-blur-sm rounded-lg p-4 text-white mb-3">
-      <div className="flex items-center mb-3">
+      <div className="flex items-center">
         {/* Champion Image */}
         <div className="relative flex-shrink-0 w-16 h-16 mr-4">
           <img 
@@ -66,11 +65,6 @@ const PlayerDetailView: React.FC<PlayerDetailViewProps> = ({ player, isActivePla
           </div>
         </div>
       </div>
-      
-      {/* Champion Stats */}
-      {player.championStats && (
-        <ChampionDetails championStats={player.championStats} />
-      )}
     </div>
   );
 };
