@@ -1,6 +1,6 @@
 {
   "name": "riftdb",
-  "version": "1.0.1",
+  "version": "1.0.0",
   "description": "RiftDB League of Legends Overlay",
   "main": "dist/main.js",
   "scripts": {
