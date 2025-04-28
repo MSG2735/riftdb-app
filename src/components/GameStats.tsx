@@ -17,7 +17,7 @@ const formatEventEntityName = (name: string): string => {
     return 'Turret';
   }
 
-  // Shorten turret names
+  // Shorten inhib names
   if (name.startsWith('Inhib') || name.toLowerCase().includes('inhib')) {
     return 'Inhib';
   }
@@ -28,6 +28,39 @@ const formatEventEntityName = (name: string): string => {
   }
   
   return name;
+};
+
+// Helper function to determine if a name is for a player on the user's team
+const isPlayerOnMyTeam = (name: string, allPlayers: any[], activePlayer: any): boolean => {
+  // Check if it's a bot - bots are never on the player's team
+  if (name.toLowerCase().includes('bot')) {
+    return false;
+  }
+  
+  // Get the active player's team
+  let myTeam = 'BLUE'; // Default to blue if we can't determine
+  
+  if (activePlayer && activePlayer.team) {
+    myTeam = activePlayer.team;
+  } else {
+    // If we don't have active player data, use the first 5 players as the player's team
+    // This assumes the first 5 players in the array are on the player's team
+    const firstPlayer = allPlayers && allPlayers.length > 0 ? allPlayers[0] : null;
+    if (firstPlayer && firstPlayer.team) {
+      myTeam = firstPlayer.team;
+    }
+  }
+  
+  // Check if the name appears in the players list for my team
+  const teamPlayers = allPlayers.filter(player => player.team === myTeam);
+  
+  // Relaxed matching - check if any part of the player name matches
+  return teamPlayers.some(player => 
+    player.summonerName && 
+    (player.summonerName === name || 
+     name.includes(player.summonerName) || 
+     player.summonerName.includes(name))
+  );
 };
 
 const GameStats: React.FC<GameStatsProps> = ({ gameData }) => {
@@ -73,27 +106,6 @@ const GameStats: React.FC<GameStatsProps> = ({ gameData }) => {
         </div>
       </div>
       
-      {/* Match Score */}
-      <div className="flex justify-center items-center gap-3 mb-3 bg-gray-800 bg-opacity-60 rounded-md p-2">
-        <div className="flex items-center justify-center gap-1">
-          <div className="bg-blue-600 bg-opacity-80 rounded-full w-8 h-8 flex items-center justify-center font-bold text-lg shadow-inner shadow-blue-900">
-            {blueTeam.score.kills}
-          </div>
-          <div className="text-blue-300 text-xs font-semibold">Blue</div>
-        </div>
-        
-        <div className="text-gray-400 flex items-center">
-          <Swords size={16} className="text-yellow-400 mx-1" />
-        </div>
-        
-        <div className="flex items-center justify-center gap-1">
-          <div className="text-red-300 text-xs font-semibold">Red</div>
-          <div className="bg-red-600 bg-opacity-80 rounded-full w-8 h-8 flex items-center justify-center font-bold text-lg shadow-inner shadow-red-900">
-            {redTeam.score.kills}
-          </div>
-        </div>
-      </div>
-      
       <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
         <div className="col-span-3 md:col-span-1">
           <TeamStats team={blueTeam} color="blue" />
@@ -110,14 +122,34 @@ const GameStats: React.FC<GameStatsProps> = ({ gameData }) => {
               {recentEvents.length > 0 ? (
                 <ul className="space-y-1">
                   {recentEvents.slice(0, 4).map((event: any, index: number) => (
-                    <li key={index} className="text-gray-300 text-xs flex items-center gap-1">
-                      <span className="text-cyan-400">{event.EventTime.toFixed(0)}s:</span> 
-                      <Award size={12} className="text-yellow-400" />
-                      <span className="truncate">
-                        {event.EventName.replace('Champion', '')}
-                        {event.KillerName && ` - ${formatEventEntityName(event.KillerName)}`}
-                        {event.VictimName && ` ${event.EventName === 'ChampionKill' ? 'killed' : ''} ${formatEventEntityName(event.VictimName)}`}
-                      </span>
+                    <li key={index} className="flex items-start gap-1">
+                      <span className="text-cyan-400 flex-shrink-0">{event.EventTime.toFixed(0)}s:</span> 
+                      <Award size={12} className="text-yellow-400 flex-shrink-0 mt-1" />
+                      {event.EventName === 'ChampionKill' ? (
+                        <span className="truncate">
+                          <span className="text-gray-300">Kill - </span>
+                          <span className={isPlayerOnMyTeam(event.KillerName, allPlayers, activePlayer) ? "text-blue-300" : "text-red-300"}>
+                            {formatEventEntityName(event.KillerName)}
+                          </span>
+                          <span className="text-gray-300"> killed </span>
+                          <span className={isPlayerOnMyTeam(event.VictimName, allPlayers, activePlayer) ? "text-blue-300" : "text-red-300"}>
+                            {formatEventEntityName(event.VictimName)}
+                          </span>
+                        </span>
+                      ) : event.EventName === 'TurretKilled' ? (
+                        <span className="truncate">
+                          <span className="text-gray-300">TurretKilled - </span>
+                          <span className={isPlayerOnMyTeam(event.KillerName, allPlayers, activePlayer) ? "text-blue-300" : "text-red-300"}>
+                            {formatEventEntityName(event.KillerName)}
+                          </span>
+                        </span>
+                      ) : (
+                        <span className="truncate text-gray-300">
+                          {event.EventName.replace('Champion', '')}
+                          {event.KillerName && ` - ${formatEventEntityName(event.KillerName)}`}
+                          {event.VictimName && ` ${formatEventEntityName(event.VictimName)}`}
+                        </span>
+                      )}
                     </li>
                   ))}
                 </ul>
