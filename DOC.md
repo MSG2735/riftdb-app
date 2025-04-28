@@ -42,6 +42,7 @@ json
     "abilities": { ... },
     "championStats": { ... },
     "currentGold": 500,
+    "totalGold": 1000,
     "level": 1,
     "summonerName": "YourName",
     "summonerSpells": { ... },
@@ -135,6 +136,7 @@ json
     "tenacity": 0
   },
   "currentGold": 500,
+  "totalGold": 1000,
   "level": 1,
   "summonerName": "YourName",
   "summonerSpells": {

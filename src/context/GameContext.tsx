@@ -47,10 +47,13 @@ const transformGameData = (data: any): any => {
     // Try to find gold information
     const isActivePlayer = data.activePlayer && data.activePlayer.summonerName === player.summonerName;
     
-    // For active player, we might have currentGold
+    // For active player, we might have totalGold directly from the API
     let totalGold = 0;
-    if (isActivePlayer && data.activePlayer.currentGold !== undefined) {
-      totalGold = data.activePlayer.currentGold;
+    if (isActivePlayer && data.activePlayer) {
+      // Use totalGold from API if available, otherwise fall back to currentGold
+      totalGold = data.activePlayer.totalGold !== undefined 
+        ? data.activePlayer.totalGold 
+        : (data.activePlayer.currentGold || 0);
     }
     
     // Add item values if available

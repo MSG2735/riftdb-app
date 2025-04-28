@@ -1,5 +1,5 @@
 import React from 'react';
-import { Users, Swords, Mountain } from 'lucide-react';
+import { Users, Swords, Mountain, Coins } from 'lucide-react';
 
 interface TeamStatsProps {
   team: any;
@@ -114,29 +114,40 @@ const TeamStats: React.FC<TeamStatsProps> = ({ team, color }) => {
           {team.players && team.players.map((player: any, index: number) => (
             <div 
               key={index} 
-              className="flex justify-between items-center text-xs bg-gray-800 bg-opacity-50 py-0.5 px-1 rounded"
+              className="flex flex-col text-xs bg-gray-800 bg-opacity-50 py-0.5 px-1 rounded"
             >
-              <div className="flex items-center">
-                <div 
-                  className="w-3 h-3 rounded-full overflow-hidden mr-1 flex-shrink-0"
-                  title={player.championName}
-                >
-                  <img 
-                    src={`http://ddragon.leagueoflegends.com/cdn/13.7.1/img/champion/${player.championName}.png`}
-                    alt=""
-                    className="w-full h-full object-cover"
-                    onError={(e) => {
-                      e.currentTarget.src = '';
-                      e.currentTarget.style.background = 'rgba(0,0,0,0.5)';
-                    }}
-                  />
+              <div className="flex justify-between items-center">
+                <div className="flex items-center">
+                  <div 
+                    className="w-3 h-3 rounded-full overflow-hidden mr-1 flex-shrink-0"
+                    title={player.championName}
+                  >
+                    <img 
+                      src={`http://ddragon.leagueoflegends.com/cdn/13.7.1/img/champion/${player.championName}.png`}
+                      alt=""
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        e.currentTarget.src = '';
+                        e.currentTarget.style.background = 'rgba(0,0,0,0.5)';
+                      }}
+                    />
+                  </div>
+                  <span className="truncate max-w-[80px]" title={player.summonerName}>
+                    {player.summonerName}
+                  </span>
                 </div>
-                <span className="truncate max-w-[80px]" title={player.summonerName}>
-                  {player.summonerName}
-                </span>
+                <div className="text-green-400 font-mono">
+                  {player.scores?.kills || 0}/{player.scores?.deaths || 0}/{player.scores?.assists || 0}
+                </div>
               </div>
-              <div className="text-green-400 font-mono">
-                {player.scores?.kills || 0}/{player.scores?.deaths || 0}/{player.scores?.assists || 0}
+              <div className="flex justify-between items-center mt-0.5">
+                <div className="flex items-center text-yellow-400">
+                  <Coins size={10} className="mr-1" />
+                  <span>Gold:</span>
+                </div>
+                <div className="font-mono">
+                  {Math.round(player.totalGold || 0).toLocaleString()}
+                </div>
               </div>
             </div>
           ))}
