@@ -55,7 +55,7 @@ const TeamStats: React.FC<TeamStatsProps> = ({ team, color }) => {
         )}
       </h2>
       
-      <div className="grid grid-cols-2 gap-2 text-xs">
+      <div className="grid grid-cols-2 gap-x-16 text-xs">
         <div className="flex items-center gap-1">
           <Coins size={14} className="text-yellow-300" />
           <div>
