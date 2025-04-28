@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import GameTimer from './GameTimer';
 import TeamStats from './TeamStats';
+import GameTimer from './GameTimer';
+import PlayerDetailView from './PlayerDetailView';
 import EventTimeline from './EventTimeline';
 import { useGameContext } from '../context/GameContext';
-import { Timer, TrendingUp } from 'lucide-react';
+import { Timer, Swords, TrendingUp, BadgeInfo, Users, User } from 'lucide-react';
 
 interface GameStatsProps {
   gameData: any;
@@ -157,6 +158,14 @@ const GameStats: React.FC<GameStatsProps> = ({ gameData }) => {
             <span className="text-red-300 font-mono">{Math.round(redTeam.totalGold || 0).toLocaleString()}</span>
           </div>
         </div>
+        
+        {/* Selected Player Detail */}
+        {selectedPlayer && (
+          <PlayerDetailView 
+            player={selectedPlayer} 
+            isActivePlayer={activePlayer && selectedPlayer.summonerName === activePlayer.summonerName}
+          />
+        )}
       </div>
     </div>
   );

@@ -62,17 +62,18 @@ const transformGameData = (data: any): any => {
       totalGold += itemsValue;
     }
     
-    // Enhanced player with basic stats
+    // For active player, add additional stats
     let enhancedPlayer = {
       ...player,
       totalGold,
       gameTime: data.gameData?.gameTime || 0
     };
 
-    // If this is the active player, add current gold and level
+    // If this is the active player, add champion stats
     if (isActivePlayer && data.activePlayer) {
       enhancedPlayer = {
         ...enhancedPlayer,
+        championStats: data.activePlayer.championStats,
         currentGold: data.activePlayer.currentGold,
         level: data.activePlayer.level || enhancedPlayer.level,
       };
