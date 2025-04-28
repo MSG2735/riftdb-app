@@ -1,5 +1,5 @@
 import React, { createContext, useState, useContext, useEffect, ReactNode } from 'react';
-import { fetchGameData, fetchEventData } from '../services/leagueApi';
+import { fetchGameData, fetchEventData, isGameInProgress } from '../services/leagueApi';
 
 // Define the interface for the game state
 export interface GameState {
@@ -38,6 +38,10 @@ const isValidGameData = (data: any): boolean => {
 
 // Transform the API response to match our expected structure
 const transformGameData = (data: any): any => {
+  if (!data || !data.allPlayers) {
+    return null;
+  }
+
   // Calculate gold for each player if possible
   const enrichedPlayers = data.allPlayers.map((player: any) => {
     // Try to find gold information
@@ -58,11 +62,24 @@ const transformGameData = (data: any): any => {
       totalGold += itemsValue;
     }
     
-    return {
+    // For active player, add additional stats
+    let enhancedPlayer = {
       ...player,
       totalGold,
       gameTime: data.gameData?.gameTime || 0
     };
+
+    // If this is the active player, add champion stats
+    if (isActivePlayer && data.activePlayer) {
+      enhancedPlayer = {
+        ...enhancedPlayer,
+        championStats: data.activePlayer.championStats,
+        currentGold: data.activePlayer.currentGold,
+        level: data.activePlayer.level || enhancedPlayer.level,
+      };
+    }
+    
+    return enhancedPlayer;
   });
 
   // Process events to extract objectives
@@ -189,103 +206,128 @@ const extractTeamsFromPlayers = (players: any[], objectives: any): any[] => {
     return sum + (player.scores && player.scores.kills ? player.scores.kills : 0);
   }, 0);
 
+  // Calculate team deaths
+  const blueTeamDeaths = bluePlayers.reduce((sum, player) => {
+    return sum + (player.scores && player.scores.deaths ? player.scores.deaths : 0);
+  }, 0);
+  
+  const redTeamDeaths = redPlayers.reduce((sum, player) => {
+    return sum + (player.scores && player.scores.deaths ? player.scores.deaths : 0);
+  }, 0);
+
+  // Calculate team assists
+  const blueTeamAssists = bluePlayers.reduce((sum, player) => {
+    return sum + (player.scores && player.scores.assists ? player.scores.assists : 0);
+  }, 0);
+  
+  const redTeamAssists = redPlayers.reduce((sum, player) => {
+    return sum + (player.scores && player.scores.assists ? player.scores.assists : 0);
+  }, 0);
+
   // Create team structures based on players
   const blueTeam = {
     teamID: 100,
     team: 'BLUE',
     totalGold: blueTeamGold,
     score: {
-      kills: blueTeamKills
+      kills: blueTeamKills,
+      deaths: blueTeamDeaths,
+      assists: blueTeamAssists
     },
     objectives: {
-      dragon: { 
-        kills: objectives.blueTeam.dragons,
-        types: objectives.blueTeam.dragonTypes || []
-      },
-      baron: { kills: 0 },
-      turret: { kills: objectives.blueTeam.turrets },
-      inhibitor: { kills: 0 }
-    }
+      dragons: objectives.blueTeam.dragons,
+      turrets: objectives.blueTeam.turrets,
+      dragonTypes: objectives.blueTeam.dragonTypes
+    },
+    players: bluePlayers
   };
-
+  
   const redTeam = {
     teamID: 200,
     team: 'RED',
     totalGold: redTeamGold,
     score: {
-      kills: redTeamKills
+      kills: redTeamKills,
+      deaths: redTeamDeaths,
+      assists: redTeamAssists
     },
     objectives: {
-      dragon: { 
-        kills: objectives.redTeam.dragons,
-        types: objectives.redTeam.dragonTypes || []
-      },
-      baron: { kills: 0 },
-      turret: { kills: objectives.redTeam.turrets },
-      inhibitor: { kills: 0 }
-    }
+      dragons: objectives.redTeam.dragons,
+      turrets: objectives.redTeam.turrets,
+      dragonTypes: objectives.redTeam.dragonTypes
+    },
+    players: redPlayers
   };
-
+  
   return [blueTeam, redTeam];
 };
 
 export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  // State for game data
-  const [gameData, setGameData] = useState<any>(null);
-  const [activePlayer, setActivePlayer] = useState<any>(null);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string | null>(null);
-  const [isInGame, setIsInGame] = useState<boolean>(false);
-  const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
+  const [gameState, setGameState] = useState<GameState>({
+    gameData: null,
+    activePlayer: null,
+    loading: true,
+    error: null,
+    isInGame: false,
+    lastRefresh: null
+  });
+  
   const [pollingInterval, setPollingIntervalState] = useState<number>(DEFAULT_POLLING_INTERVAL);
   const [intervalId, setIntervalId] = useState<NodeJS.Timeout | null>(null);
 
-  // Function to fetch game data
+  // Function to refresh game data
   const refreshGameData = async (): Promise<void> => {
     try {
-      setLoading(true);
-      const data = await fetchGameData();
+      // First check if game is in progress to avoid API errors
+      const gameInProgress = await isGameInProgress();
       
-      // Validate the data has the expected structure
-      if (isValidGameData(data)) {
-        // If the event data seems incomplete, try to fetch it directly
-        if (!data.events || !data.events.Events || data.events.Events.length === 0) {
-          try {
-            const eventData = await fetchEventData();
-            if (eventData && eventData.Events) {
-              data.events = eventData;
-            }
-          } catch (eventError) {
-            // Continue with the original data even if event fetching failed
-          }
-        }
-        
-        // Transform data to match expected format before setting it
-        const transformedData = transformGameData(data);
-        setGameData(transformedData);
-        
-        // Extract active player data if available
-        if (data.activePlayer) {
-          setActivePlayer(data.activePlayer);
-        }
-        
-        setIsInGame(true);
-        setError(null);
-      } else {
-        setError('Received invalid data from League client');
-        setGameData(null);
-        setActivePlayer(null);
-        setIsInGame(false);
+      if (!gameInProgress) {
+        setGameState({
+          gameData: null,
+          activePlayer: null,
+          loading: false,
+          error: "No active game detected",
+          isInGame: false,
+          lastRefresh: new Date()
+        });
+        return;
       }
       
-      setLastRefresh(new Date());
-    } catch (err) {
-      setError('Unable to connect to League of Legends client');
-      setGameData(null);
-      setActivePlayer(null);
-      setIsInGame(false);
-    } finally {
-      setLoading(false);
+      // Fetch all game data at once
+      const allGameData = await fetchGameData();
+      
+      // Validate the response to ensure it has required data
+      if (!isValidGameData(allGameData)) {
+        setGameState(prev => ({
+          ...prev,
+          loading: false,
+          error: "Invalid game data format",
+          isInGame: gameInProgress,
+          lastRefresh: new Date()
+        }));
+        return;
+      }
+      
+      // Transform the raw API data into our application structure
+      const transformedData = transformGameData(allGameData);
+      
+      setGameState({
+        gameData: transformedData,
+        activePlayer: allGameData.activePlayer,
+        loading: false,
+        error: null,
+        isInGame: true,
+        lastRefresh: new Date()
+      });
+    } catch (error: any) {
+      console.error('Error refreshing game data:', error);
+      setGameState(prev => ({
+        ...prev,
+        loading: false,
+        error: error.message || "Error connecting to League client",
+        isInGame: false,
+        lastRefresh: new Date()
+      }));
     }
   };
 
@@ -322,12 +364,12 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   // Context value
   const contextValue: GameContextValue = {
-    gameData,
-    activePlayer,
-    loading,
-    error,
-    isInGame,
-    lastRefresh,
+    gameData: gameState.gameData,
+    activePlayer: gameState.activePlayer,
+    loading: gameState.loading,
+    error: gameState.error,
+    isInGame: gameState.isInGame,
+    lastRefresh: gameState.lastRefresh,
     refreshGameData,
     setPollingInterval
   };
