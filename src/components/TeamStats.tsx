@@ -1,5 +1,5 @@
 import React from 'react';
-import { Users, Swords, Target, Mountain } from 'lucide-react';
+import { Users, Swords, Mountain } from 'lucide-react';
 
 interface TeamStatsProps {
   team: any;
