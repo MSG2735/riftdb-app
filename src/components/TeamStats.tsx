@@ -60,7 +60,7 @@ const TeamStats: React.FC<TeamStatsProps> = ({ team, color }) => {
           <Coins size={14} className="text-yellow-300" />
           <div>
             <span className="block text-white font-semibold">Gold</span>
-            <span className="font-mono">{team.totalGold ? team.totalGold.toLocaleString() : '0'}</span>
+            <span className="font-mono">{team.totalGold ? Math.round(team.totalGold).toLocaleString() : '0'}</span>
           </div>
         </div>
         
