@@ -8,8 +8,8 @@ interface TeamStatsProps {
 
 const TeamStats: React.FC<TeamStatsProps> = ({ team, color }) => {
   const colorClasses = {
-    blue: 'bg-blue-600 bg-opacity-50 text-blue-100 border-blue-500',
-    red: 'bg-red-600 bg-opacity-50 text-red-100 border-red-500'
+    blue: 'bg-blue-600 bg-opacity-30 text-blue-100 border-blue-500',
+    red: 'bg-red-600 bg-opacity-30 text-red-100 border-red-500'
   };
   
   // Function to get icons for dragon types

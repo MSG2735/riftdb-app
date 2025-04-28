@@ -97,7 +97,7 @@ const GameStats: React.FC<GameStatsProps> = ({ gameData }) => {
     events.Events.slice(-5).reverse() : [];
 
   return (
-    <div className="p-3 bg-gray-900 bg-opacity-70 backdrop-blur-sm rounded-lg text-white max-w-xl border border-gray-700 shadow-lg overflow-hidden">
+    <div className="p-3 bg-gray-900 bg-opacity-50 backdrop-blur-sm rounded-lg text-white max-w-xl border border-gray-700 shadow-lg overflow-hidden">
       <div className="flex items-center justify-between mb-2">
         <h1 className="text-base font-bold bg-gradient-to-r from-blue-400 to-cyan-300 text-transparent bg-clip-text">RiftDB</h1>
         <div className="flex items-center space-x-1 text-sky-400">
@@ -118,7 +118,7 @@ const GameStats: React.FC<GameStatsProps> = ({ gameData }) => {
               <BadgeInfo size={14} className="text-gray-400" />
               <h3 className="text-gray-300 text-xs font-semibold">Recent Events</h3>
             </div>
-            <div className="bg-gray-800 bg-opacity-50 rounded-md p-2 max-h-32 overflow-y-auto text-xs border border-gray-700">
+            <div className="bg-gray-800 bg-opacity-40 rounded-md p-2 max-h-32 overflow-y-auto text-xs border border-gray-700">
               {recentEvents.length > 0 ? (
                 <ul className="space-y-1">
                   {recentEvents.slice(0, 4).map((event: any, index: number) => (
@@ -139,6 +139,13 @@ const GameStats: React.FC<GameStatsProps> = ({ gameData }) => {
                       ) : event.EventName === 'TurretKilled' ? (
                         <span className="truncate">
                           <span className="text-gray-300">TurretKilled - </span>
+                          <span className={isPlayerOnMyTeam(event.KillerName, allPlayers, activePlayer) ? "text-blue-300" : "text-red-300"}>
+                            {formatEventEntityName(event.KillerName)}
+                          </span>
+                        </span>
+                      ) : event.EventName === 'InhibKilled' ? (
+                        <span className="truncate">
+                          <span className="text-gray-300">InhibKilled - </span>
                           <span className={isPlayerOnMyTeam(event.KillerName, allPlayers, activePlayer) ? "text-blue-300" : "text-red-300"}>
                             {formatEventEntityName(event.KillerName)}
                           </span>
