@@ -2,7 +2,7 @@ import React from 'react';
 import TeamStats from './TeamStats';
 import GameTimer from './GameTimer';
 import { useGameContext } from '../context/GameContext';
-import { Timer, Swords, TrendingUp, BadgeInfo, Award } from 'lucide-react';
+import { Timer, TrendingUp, BadgeInfo, Award } from 'lucide-react';
 
 interface GameStatsProps {
   gameData: any;
