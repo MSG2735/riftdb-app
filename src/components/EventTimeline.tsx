@@ -14,6 +14,28 @@ const formatGameTime = (seconds: number): string => {
   return `${minutes}:${secs < 10 ? '0' : ''}${secs}`;
 };
 
+// Helper function to format entity names in events
+const formatEntityName = (name: string): string => {
+  if (!name) return '';
+  
+  // Simplify turret names
+  if (name.startsWith('Turret') || name.toLowerCase().includes('turret')) {
+    return 'Turret';
+  }
+
+  // Simplify minion names
+  if (name.startsWith('Minion') || name.toLowerCase().includes('minion')) {
+    return 'Minion';
+  }
+  
+  // Simplify inhib names
+  if (name.startsWith('Inhib') || name.toLowerCase().includes('inhib')) {
+    return 'Inhibitor';
+  }
+  
+  return name;
+};
+
 // Helper function to determine if a name is for a player on the user's team
 const isPlayerOnMyTeam = (name: string, allPlayers: any[], activePlayer: any): boolean => {
   if (!name || !allPlayers || !activePlayer) return false;
@@ -110,14 +132,14 @@ const EventTimeline: React.FC<EventTimelineProps> = ({ events, allPlayers, activ
                   {event.EventName === 'ChampionKill' && (
                     <div>
                       <span className={isPlayerOnMyTeam(event.KillerName, allPlayers, activePlayer) ? "text-blue-300 font-medium" : "text-red-300 font-medium"}>
-                        {event.KillerName}
+                        {formatEntityName(event.KillerName)}
                       </span>
                       <span className="text-gray-400"> killed </span>
                       <span className={isPlayerOnMyTeam(event.VictimName, allPlayers, activePlayer) ? "text-blue-300 font-medium" : "text-red-300 font-medium"}>
-                        {event.VictimName}
+                        {formatEntityName(event.VictimName)}
                       </span>
                       {event.Assisters && event.Assisters.length > 0 && (
-                        <span className="text-gray-400"> (Assists: {event.Assisters.join(', ')})</span>
+                        <span className="text-gray-400"> (Assists: {event.Assisters.map((assister: string) => formatEntityName(assister)).join(', ')})</span>
                       )}
                     </div>
                   )}
@@ -125,7 +147,7 @@ const EventTimeline: React.FC<EventTimelineProps> = ({ events, allPlayers, activ
                   {event.EventName === 'DragonKill' && (
                     <div>
                       <span className={isPlayerOnMyTeam(event.KillerName, allPlayers, activePlayer) ? "text-blue-300 font-medium" : "text-red-300 font-medium"}>
-                        {event.KillerName}
+                        {formatEntityName(event.KillerName)}
                       </span>
                       <span className="text-gray-400"> killed </span>
                       <span className="text-purple-300 font-medium">
@@ -137,7 +159,7 @@ const EventTimeline: React.FC<EventTimelineProps> = ({ events, allPlayers, activ
                   {event.EventName === 'HeraldKill' && (
                     <div>
                       <span className={isPlayerOnMyTeam(event.KillerName, allPlayers, activePlayer) ? "text-blue-300 font-medium" : "text-red-300 font-medium"}>
-                        {event.KillerName}
+                        {formatEntityName(event.KillerName)}
                       </span>
                       <span className="text-gray-400"> killed </span>
                       <span className="text-pink-300 font-medium">Herald</span>
@@ -147,7 +169,7 @@ const EventTimeline: React.FC<EventTimelineProps> = ({ events, allPlayers, activ
                   {event.EventName === 'BaronKill' && (
                     <div>
                       <span className={isPlayerOnMyTeam(event.KillerName, allPlayers, activePlayer) ? "text-blue-300 font-medium" : "text-red-300 font-medium"}>
-                        {event.KillerName}
+                        {formatEntityName(event.KillerName)}
                       </span>
                       <span className="text-gray-400"> killed </span>
                       <span className="text-yellow-300 font-medium">Baron Nashor</span>
@@ -157,7 +179,7 @@ const EventTimeline: React.FC<EventTimelineProps> = ({ events, allPlayers, activ
                   {event.EventName === 'TurretKilled' && (
                     <div>
                       <span className={isPlayerOnMyTeam(event.KillerName, allPlayers, activePlayer) ? "text-blue-300 font-medium" : "text-red-300 font-medium"}>
-                        {event.KillerName}
+                        {formatEntityName(event.KillerName)}
                       </span>
                       <span className="text-gray-400"> destroyed a </span>
                       <span className="text-blue-300 font-medium">Turret</span>
@@ -168,7 +190,7 @@ const EventTimeline: React.FC<EventTimelineProps> = ({ events, allPlayers, activ
                     <div>
                       <span className="text-red-400 font-medium">FIRST BLOOD: </span>
                       <span className={isPlayerOnMyTeam(event.KillerName, allPlayers, activePlayer) ? "text-blue-300 font-medium" : "text-red-300 font-medium"}>
-                        {event.KillerName}
+                        {formatEntityName(event.KillerName)}
                       </span>
                     </div>
                   )}
@@ -176,10 +198,41 @@ const EventTimeline: React.FC<EventTimelineProps> = ({ events, allPlayers, activ
                   {event.EventName === 'InhibKilled' && (
                     <div>
                       <span className={isPlayerOnMyTeam(event.KillerName, allPlayers, activePlayer) ? "text-blue-300 font-medium" : "text-red-300 font-medium"}>
-                        {event.KillerName}
+                        {formatEntityName(event.KillerName)}
                       </span>
                       <span className="text-gray-400"> destroyed an </span>
                       <span className="text-pink-300 font-medium">Inhibitor</span>
+                    </div>
+                  )}
+                  
+                  {/* Generic handler for other event types not specifically handled above */}
+                  {!['ChampionKill', 'DragonKill', 'HeraldKill', 'BaronKill', 'TurretKilled', 'FirstBlood', 'InhibKilled'].includes(event.EventName) && (
+                    <div>
+                      {/* If the killer contains "Minion" */}
+                      {event.KillerName && event.KillerName.includes('Minion') && (
+                        <>
+                          <span className="text-gray-300 font-medium">
+                            {formatEntityName(event.KillerName)}
+                          </span>
+                          <span className="text-gray-400"> destroyed a </span>
+                          <span className="text-gray-300 font-medium">
+                            {formatEntityName(event.VictimName || 'Turret')}
+                          </span>
+                        </>
+                      )}
+                      
+                      {/* Default case for other events */}
+                      {!(event.KillerName && event.KillerName.includes('Minion')) && (
+                        <>
+                          <span className={isPlayerOnMyTeam(event.KillerName, allPlayers, activePlayer) ? "text-blue-300 font-medium" : "text-red-300 font-medium"}>
+                            {formatEntityName(event.KillerName)}
+                          </span>
+                          <span className="text-gray-400"> {event.EventName.includes('Kill') ? 'killed' : 'destroyed'} a </span>
+                          <span className="text-gray-300 font-medium">
+                            {formatEntityName(event.VictimName || '')}
+                          </span>
+                        </>
+                      )}
                     </div>
                   )}
                 </div>
