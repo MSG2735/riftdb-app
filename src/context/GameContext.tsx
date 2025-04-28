@@ -1,5 +1,5 @@
 import React, { createContext, useState, useContext, useEffect, ReactNode } from 'react';
-import { fetchGameData, isGameInProgress } from '../services/leagueApi';
+import { fetchGameData, fetchEventData, isGameInProgress } from '../services/leagueApi';
 
 // Define the interface for the game state
 export interface GameState {
