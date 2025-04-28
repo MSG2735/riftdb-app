@@ -118,7 +118,7 @@ const GameStats: React.FC<GameStatsProps> = ({ gameData }) => {
               <BadgeInfo size={14} className="text-gray-400" />
               <h3 className="text-gray-300 text-xs font-semibold">Recent Events</h3>
             </div>
-            <div className="bg-gray-800 bg-opacity-40 rounded-md p-2 max-h-32 overflow-y-auto text-xs border border-gray-700">
+            <div className="bg-gray-800 bg-opacity-50 rounded-md p-2 max-h-32 overflow-y-auto text-xs border border-gray-700">
               {recentEvents.length > 0 ? (
                 <ul className="space-y-1">
                   {recentEvents.slice(0, 4).map((event: any, index: number) => (
@@ -127,7 +127,6 @@ const GameStats: React.FC<GameStatsProps> = ({ gameData }) => {
                       <Award size={12} className="text-yellow-400 flex-shrink-0 mt-1" />
                       {event.EventName === 'ChampionKill' ? (
                         <span className="truncate">
-                          <span className="text-gray-300">Kill - </span>
                           <span className={isPlayerOnMyTeam(event.KillerName, allPlayers, activePlayer) ? "text-blue-300" : "text-red-300"}>
                             {formatEventEntityName(event.KillerName)}
                           </span>
