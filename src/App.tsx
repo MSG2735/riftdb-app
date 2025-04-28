@@ -1,53 +1,9 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import GameStats from './components/GameStats';
 import { useGameContext } from './context/GameContext';
 
-// Import the electron IPC renderer
-const { ipcRenderer } = window.require('electron');
-
 const App: React.FC = () => {
   const { gameData, loading, error, isInGame } = useGameContext();
-  
-  // Set up Tab key detection
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Tab') {
-        // Prevent the default Tab behavior
-        e.preventDefault();
-        // Send message to main process
-        ipcRenderer.send('tab-key-down');
-        console.log('Tab key down in renderer');
-      }
-    };
-    
-    const handleKeyUp = (e: KeyboardEvent) => {
-      if (e.key === 'Tab') {
-        e.preventDefault();
-        // Send message to main process
-        ipcRenderer.send('tab-key-up');
-        console.log('Tab key up in renderer');
-      }
-    };
-
-    // Handle window focus/blur events which might affect key state
-    const handleWindowBlur = () => {
-      // When window loses focus, treat as if tab key was released
-      ipcRenderer.send('tab-key-up');
-      console.log('Window blur - treating as tab key up');
-    };
-    
-    // Add event listeners
-    window.addEventListener('keydown', handleKeyDown);
-    window.addEventListener('keyup', handleKeyUp);
-    window.addEventListener('blur', handleWindowBlur);
-    
-    // Clean up
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown);
-      window.removeEventListener('keyup', handleKeyUp);
-      window.removeEventListener('blur', handleWindowBlur);
-    };
-  }, []);
 
   if (loading && !gameData) {
     return (
