@@ -9,6 +9,8 @@ app.disableHardwareAcceleration();
 // Add command line switches for transparency
 app.commandLine.appendSwitch('enable-transparent-visuals');
 app.commandLine.appendSwitch('disable-gpu');
+// Add high priority to help with fullscreen overlay
+app.commandLine.appendSwitch('high-dpi-support', '1');
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling
 if (require('electron-squirrel-startup')) {
@@ -18,7 +20,7 @@ if (require('electron-squirrel-startup')) {
 let mainWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
 // Track ignoring mouse events state
-let isIgnoringMouseEvents = false;
+let isIgnoringMouseEvents = true;  // Set to true by default
 
 const createWindow = (): void => {
   try {
@@ -42,9 +44,15 @@ const createWindow = (): void => {
       x: width - 620, // Position 620px right to the right edge
       y: 75, // Position 75px down from the top
       show: false, // Don't show until fully loaded
-      backgroundColor: '#00000000' // Transparent background color
+      backgroundColor: '#00000000', // Transparent background color
+      // Additional properties for fullscreen compatibility
+      focusable: false, // Prevents window from stealing focus
+      fullscreenable: false // Prevents accidental fullscreen
     });
 
+    // Set window to stay on top of all windows including fullscreen applications
+    mainWindow.setAlwaysOnTop(true, 'screen-saver'); // Use screen-saver level which is higher than normal
+    
     // Configure session to bypass certificate errors for League API
     session.defaultSession.webRequest.onBeforeSendHeaders((details, callback) => {
       callback({ requestHeaders: { ...details.requestHeaders } });
@@ -108,6 +116,8 @@ const createWindow = (): void => {
         mainWindow.focus();
         // Explicitly set background color again after window is shown
         mainWindow.setBackgroundColor('#00000000');
+        // Ensure window level is set properly after showing
+        mainWindow.setAlwaysOnTop(true, 'screen-saver');
         console.log('Window is now visible');
       }
     });
@@ -119,13 +129,16 @@ const createWindow = (): void => {
     //  mainWindow.webContents.openDevTools();
     //}
 
-    // Only set click-through in development mode
-    if (!app.isPackaged) {
-      mainWindow.setIgnoreMouseEvents(true, { forward: true });
-      isIgnoringMouseEvents = true;
-    } else {
-      isIgnoringMouseEvents = false;
-    }
+    // Enable click-through by default in both dev and production
+    mainWindow.setIgnoreMouseEvents(true, { forward: true });
+    isIgnoringMouseEvents = true;
+
+    // Reapply on-top status when window is shown
+    mainWindow.on('show', () => {
+      if (mainWindow) {
+        mainWindow.setAlwaysOnTop(true, 'screen-saver');
+      }
+    });
 
     mainWindow.on('closed', () => {
       mainWindow = null;
@@ -243,6 +256,23 @@ app.on('ready', () => {
         }
       });
     });
+
+    // Monitor for fullscreen applications
+    const monitorFullscreen = () => {
+      if (mainWindow) {
+        // Get all displays
+        const displays = require('electron').screen.getAllDisplays();
+        
+        // Check if any display has a fullscreen window
+        for (const display of displays) {
+          // If window becomes hidden or loses "always on top" status, reapply
+          if (!mainWindow.isAlwaysOnTop()) {
+            mainWindow.setAlwaysOnTop(true, 'screen-saver');
+            console.log('Fullscreen detected, reapplying always-on-top');
+          }
+        }
+      }
+    };
 
     // Set up IPC handler for League API requests
     ipcMain.handle('fetch-league-data', async (event, endpoint) => {
