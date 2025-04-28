@@ -1,4 +1,4 @@
-import { app, BrowserWindow, Tray, Menu, nativeImage, session, ipcMain } from 'electron';
+import { app, BrowserWindow, Tray, Menu, nativeImage, session, ipcMain, globalShortcut } from 'electron';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as https from 'https';
@@ -21,6 +21,26 @@ let mainWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
 // Track ignoring mouse events state
 let isIgnoringMouseEvents = true;  // Set to true by default
+// Track if overlay is shown via TAB key
+let isShownViaTabKey = false;
+let isTabKeyDown = false;
+
+// Function to show the overlay
+const showOverlay = () => {
+  if (mainWindow) {
+    mainWindow.show();
+    mainWindow.setAlwaysOnTop(true, 'screen-saver');
+    isShownViaTabKey = true;
+  }
+};
+
+// Function to hide the overlay
+const hideOverlay = () => {
+  if (mainWindow && isShownViaTabKey) {
+    mainWindow.hide();
+    isShownViaTabKey = false;
+  }
+};
 
 const createWindow = (): void => {
   try {
@@ -112,13 +132,14 @@ const createWindow = (): void => {
     // Make the app visible once it's ready
     mainWindow.once('ready-to-show', () => {
       if (mainWindow) {
-        mainWindow.show();
+        // Don't show the window initially, wait for Tab key press
+        // mainWindow.show();
         mainWindow.focus();
         // Explicitly set background color again after window is shown
         mainWindow.setBackgroundColor('#00000000');
         // Ensure window level is set properly after showing
         mainWindow.setAlwaysOnTop(true, 'screen-saver');
-        console.log('Window is now visible');
+        console.log('Window is ready but hidden waiting for Tab key');
       }
     });
     
@@ -257,6 +278,65 @@ app.on('ready', () => {
       });
     });
 
+    // We'll set up a better mechanism for detecting Tab key press/release
+    // First, unregister any existing shortcuts (just to be safe)
+    globalShortcut.unregisterAll();
+
+    // Create a more robust approach for TAB key tracking
+    let tabKeyTimer: NodeJS.Timeout | null = null;
+    
+    // Register the Tab key - this will work even when in games
+    globalShortcut.register('Tab', () => {
+      console.log('Tab key pressed (global shortcut)');
+      
+      // If we already have a timer running, clear it
+      if (tabKeyTimer) {
+        clearTimeout(tabKeyTimer);
+        tabKeyTimer = null;
+      }
+      
+      // Show the overlay immediately
+      isTabKeyDown = true;
+      showOverlay();
+      
+      // Set a timer to check if the key is still being held
+      // This works around the lack of key-up events in globalShortcut
+      tabKeyTimer = setTimeout(() => {
+        console.log('Tab key timer fired - treating as key up');
+        isTabKeyDown = false;
+        hideOverlay();
+        tabKeyTimer = null;
+        
+        // Re-register the shortcut which might have been missed
+        // during rapid key presses
+        if (!globalShortcut.isRegistered('Tab')) {
+          globalShortcut.register('Tab', () => {
+            isTabKeyDown = true;
+            showOverlay();
+          });
+        }
+      }, 200); // 200ms timer - adjust if needed
+    });
+    
+    // We'll also keep the IPC handlers as a secondary mechanism
+    ipcMain.on('tab-key-down', () => {
+      console.log('Tab key down via IPC');
+      isTabKeyDown = true;
+      showOverlay();
+      
+      // Clear any running timer
+      if (tabKeyTimer) {
+        clearTimeout(tabKeyTimer);
+        tabKeyTimer = null;
+      }
+    });
+    
+    ipcMain.on('tab-key-up', () => {
+      console.log('Tab key up via IPC');
+      isTabKeyDown = false;
+      hideOverlay();
+    });
+
     // Monitor for fullscreen applications
     const monitorFullscreen = () => {
       if (mainWindow) {
@@ -310,6 +390,15 @@ app.on('ready', () => {
       }
     });
 
+    // Add a safety timer that checks the overlay state every few seconds
+    // This ensures it doesn't get stuck visible if something goes wrong
+    setInterval(() => {
+      if (mainWindow && mainWindow.isVisible() && !isTabKeyDown) {
+        console.log('Safety timer: Tab key not pressed but overlay visible - hiding');
+        hideOverlay();
+      }
+    }, 2000); // Check every 2 seconds
+
     createWindow();
     createTray();
   }, 300); // 300ms delay helps with transparency issues
@@ -332,6 +421,9 @@ app.on('activate', () => {
 
 // Handle app quitting
 app.on('before-quit', () => {
+  // Unregister all shortcuts
+  globalShortcut.unregisterAll();
+  
   if (tray) {
     tray.destroy();
   }
