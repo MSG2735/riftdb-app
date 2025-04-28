@@ -103,10 +103,16 @@ const EventTimeline: React.FC<EventTimelineProps> = ({ events, allPlayers, activ
     );
   }
   
-  // Get the most significant events
-  const significantEvents = events.Events.filter((event: any) => {
-    return ['ChampionKill', 'DragonKill', 'HeraldKill', 'BaronKill', 'TurretKilled', 'FirstBlood', 'InhibKilled'].includes(event.EventName);
-  }).slice(-12).reverse(); // Get the last 12 significant events, most recent first
+  // Include all events with Minion or Turret in their names
+  const allEvents = events.Events || [];
+  const significantEvents = allEvents.filter((event: any) => {
+    return ['ChampionKill', 'DragonKill', 'HeraldKill', 'BaronKill', 'TurretKilled', 'FirstBlood', 'InhibKilled'].includes(event.EventName) ||
+           // Include all events with Minion or Turret in the name fields
+           (event.KillerName && 
+            (event.KillerName.includes('Minion') || event.KillerName.includes('Turret'))) ||
+           (event.VictimName && 
+            (event.VictimName.includes('Minion') || event.VictimName.includes('Turret')));
+  }).slice(-15).reverse(); // Get the last 15 significant events, most recent first
   
   return (
     <div className="bg-gray-800 bg-opacity-90 rounded-lg p-3 text-white">
